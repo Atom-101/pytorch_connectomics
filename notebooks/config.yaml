@@ -1,0 +1,305 @@
+AUGMENTOR:
+  ADDITIONAL_TARGETS_NAME:
+  - label
+  ADDITIONAL_TARGETS_TYPE:
+  - mask
+  COPY_PASTE_THRES: 0.7
+  CUTBLUR:
+    DOWNSAMPLE_Z: false
+    DOWN_RATIO_MAX: 8.0
+    DOWN_RATIO_MIN: 2.0
+    ENABLED: true
+    LENGTH_RATIO: 0.4
+    P: 0.2
+  CUTNOISE:
+    ENABLED: true
+    LENGTH_RATIO: 0.4
+    P: 0.2
+    SCALE: 0.3
+  ELASTIC:
+    ALPHA: 16.0
+    ENABLED: true
+    P: 0.75
+    SIGMA: 4.0
+  FLIP:
+    DO_ZTRANS: 0
+    ENABLED: true
+    P: 1.0
+  GRAYSCALE:
+    ENABLED: true
+    P: 0.75
+  MISALIGNMENT:
+    DISPLACEMENT: 16
+    ENABLED: true
+    P: 0.2
+    ROTATE_RATIO: 0.5
+  MISSINGPARTS:
+    ENABLED: true
+    ITER: 32
+    P: 0.2
+  MISSINGSECTION:
+    ENABLED: true
+    NUM_SECTION: 2
+    P: 0.5
+  MIXUP:
+    ENABLED: false
+    NUM_AUG: 2
+  MOTIONBLUR:
+    ENABLED: true
+    KERNEL_SIZE: 11
+    P: 0.5
+    SECTIONS: 2
+  RESCALE:
+    ENABLED: true
+    P: 0.5
+  ROTATE:
+    ENABLED: true
+    P: 0.5
+    ROT90: true
+  SMOOTH: false
+  USE_COPY_PASTE: true
+DATASET:
+  AXES_ORDER:
+  - 0
+  - 1
+  - 2
+  DATA_AUGMENTATION: true
+  DILATION: false
+  DILATION_STRUCT: &id001
+  - 1
+  - 5
+  - 5
+  DISTANCE_MAP:
+    MASK: false
+    MAXIMUM_DISTANCE: 75.0
+    SEED: true
+  DO_2D: false
+  EROSION: false
+  EROSION_STRUCT:
+  - 1
+  - 15
+  - 15
+  IMAGE_PATH: /n/home11/abanerjee/pytorch_connectomics/datasets/SNEMI3D/train-input.tif
+  INPUT_SIZE:
+  - 25
+  - 129
+  - 129
+  IS_ISOTROPIC: false
+  LABEL_CONNECTED: true
+  LABEL_PATH: /n/home11/abanerjee/pytorch_connectomics/datasets/SNEMI3D/train-labels.tif
+  LOAD_2D: false
+  MEAN: 0.5646
+  NAME: SNEMI3D
+  OVERLAP_FACTOR_MAX: 0.5
+  OVERLAP_FACTOR_MIN: 0.125
+  PADDING_SIZE:
+  - 0
+  - 0
+  - 0
+  REJECT_SAMPLING:
+    AFTER_AUG: false
+    P: 0.95
+    SIZE_THRES: -1
+  RESOLUTION:
+  - 30.0
+  - 6.0
+  - 6.0
+  SAMPLE_STRIDE:
+  - 1
+  - 1
+  - 1
+  SINGLE_PIXEL_SEED_P: 1.0
+  STD: 0.1758
+  TOP_K_LARGEST: 3
+  TRANSPOSE_VOL_INDEX:
+  - 0
+DATA_LOADER:
+  NUM_WORKERS: 8
+  SHUFFLE: true
+DECODER:
+  COORD_CONV: false
+  PLANES: 32
+  USE_ASPP: false
+ENCODER:
+  ATTENTION: strip_pool
+  EFFICIENTNET:
+    BLOCK_TYPE: inverted_res
+    BN_MOMENTUN: 0.01
+    KERNEL_SIZE:
+    - 3
+    - 3
+    - 5
+    - 5
+    - 3
+  IMAGE_CHANNELS: 1
+  ISOTROPIC:
+  - false
+  - false
+  - false
+  - true
+  - true
+  LAYERS:
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  NUM_CHANNELS:
+  - 32
+  - 64
+  - 128
+  - 256
+  - 256
+  RESNET:
+    BLOCK_TYPE: basicblock
+    ZERO_INIT_RESIDUAL: false
+  TYPE: resnet
+  ZERO_INIT_RESIDUAL: false
+INFERENCE:
+  AUG_MODE: mean
+  AUG_NUM: 16
+  EROSION: false
+  EROSION_STRUCT: *id001
+  EVALUATION: false
+  FOREGROUND_THRES: 0.85
+  FOREGROUND_THRES_SIZE: 200
+  IMAGE_PATH: /n/home11/abanerjee/pytorch_connectomics/datasets/SNEMI3D/valid_image.h5
+  INPUT_SIZE:
+  - 25
+  - 129
+  - 129
+  KEEP_CONNECTED: true
+  LABEL_PATH: ''
+  MOVEMENT_POLICY: aggressive
+  OUTPUT_NAME: result.h5
+  OUTPUT_PATH: ''
+  OUTPUT_SIZE:
+  - 33
+  - 257
+  - 257
+  OVERLAP_FACTOR: 0.25
+  PADDING_SIZE:
+  - 0
+  - 0
+  - 0
+  SAMPLES_PER_BATCH: 32
+  SEEDING:
+    POLICY: unlabled
+  STRIDE:
+  - 9
+  - 65
+  - 65
+LOSS:
+  FOCAL_FACTOR: 0.0
+  POS_WEIGHT: 4.0
+  PYRAMID_WEIGHTS:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  TYPE:
+  - BCE
+  WEIGHTS:
+  - 1.0
+MODEL:
+  ACT_MODE: elu
+  ARCHITECTURE: fpn_3d
+  ATTENTION: null
+  BACKBONE: efficientnet
+  BLOCKS:
+  - 1
+  - 2
+  - 2
+  - 4
+  - 5
+  BLOCK_TYPE: inverted_res_dilated
+  DEPLOY_MODE: false
+  EMBEDDING: 1
+  EXACT: true
+  FILTERS:
+  - 32
+  - 64
+  - 96
+  - 96
+  - 128
+  FINETUNE: ''
+  HEAD_DEPTH: 1
+  INPUT_SIZE:
+  - 25
+  - 129
+  - 129
+  IN_PLANES: 2
+  ISOTROPY:
+  - false
+  - false
+  - true
+  - true
+  - true
+  KERNEL_SIZES:
+  - 3
+  - 3
+  - 5
+  - 5
+  - 3
+  LOSS_OPTION:
+  - - WeightedLSBCEFocalLoss
+    - DiceLoss
+  LOSS_WEIGHT:
+  - - 1.0
+    - 0.5
+  MIXED_PRECESION: true
+  NORM_MODE: gn
+  OUTPUT_ACT:
+  - - none
+    - sigmoid
+  OUTPUT_SIZE:
+  - 8
+  - 256
+  - 256
+  OUT_PLANES: 1
+  PAD_MODE: replicate
+  POOLING_LAYER: false
+  PRE_MODEL: ''
+  PRE_MODEL_ITER: 0
+  PRE_MODEL_LAYER: ''
+  REGU_OPT: null
+  REGU_TARGET: null
+  REGU_WEIGHT: null
+  SIZE_MATCH: true
+  TARGET_OPT:
+  - '0'
+  WEIGHT_OPT:
+  - - '1'
+SOLVER:
+  BASE_LR: 0.001
+  BIAS_LR_FACTOR: 1.0
+  CHECKPOINT_PERIOD: 5000
+  CLIP_GRADIENTS:
+    CLIP_TYPE: value
+    CLIP_VALUE: 1.0
+    ENABLED: false
+    NORM_TYPE: 2.0
+  DIST_LOGITS_EPS: 0.04
+  GAMMA: 0.1
+  ITERATION_RESTART: false
+  LABEL_SMOOTHING: false
+  LR_SCHEDULER_NAME: WarmupMultiStepLR
+  MAX_ITER: 500000
+  MOMENTUM: 0.9
+  MOVES_PATH: null
+  POINT_SEED_ITERS: 10000
+  SAMPLES_PER_BATCH: 1
+  STEPS:
+  - 350000
+  TRAINER_TYPE: Basic
+  WARMUP_FACTOR: 0.001
+  WARMUP_ITERS: 500
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY_BIAS: 0.0
+  WEIGHT_DECAY_NORM: 0.0
+SYSTEM:
+  NUM_GPUS: 2
+  PARALLEL: DDP
+VIS_PERIOD: 500

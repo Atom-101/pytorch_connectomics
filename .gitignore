@@ -133,3 +133,10 @@ outputs/
 tmpwdir/
 *.iml
 .idea/
+
+*.pkl
+*.tif
+*.h5
+*.zip
+**/__pycache__/**
+**/.ipynb_checkpoints/**
