@@ -26,9 +26,10 @@ The field of *connectomics* aims to reconstruct the wiring diagram of the brain 
 
 ## Key Features
 
-- Multi-task, Active and Semi-supervised Learning
-- Distributed and Mixed-precision Training
-- Scalability for Handling Large Datasets
+- Multi-task, active and semi-supervised learning
+- Distributed and mixed-precision optimization
+- Scalability for handling large datasets
+- Comprehensive augmentations for volumetric data
 
 If you want new features that are relatively easy to implement (*e.g.*, loss functions, models), please open a feature requirement discussion in issues or implement by yourself and submit a pull request. For other features that requires substantial amount of design and coding, please contact the [author](https://github.com/zudi-lin) directly.
 
@@ -46,7 +47,7 @@ Create a new conda environment and install PyTorch:
 ```shell
 conda create -n py3_torch python=3.8
 source activate py3_torch
-conda install pytorch torchvision cudatoolkit=11.1 -c pytorch -c nvidia
+conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 ```
 
 Please note that this package is mainly developed on the Harvard [FASRC](https://www.rc.fas.harvard.edu) cluster. More information about GPU computing on the FASRC cluster can be found [here](https://www.rc.fas.harvard.edu/resources/documentation/gpgpu-computing-on-the-cluster/).
@@ -56,11 +57,17 @@ Download and install the package:
 ```shell
 git clone https://github.com/zudi-lin/pytorch_connectomics.git
 cd pytorch_connectomics
-pip install --upgrade pip
 pip install --editable .
 ```
 
-Since the package is under active development, the editable installation will allow any changes to the original package to reflect directly in the environment. For more information and frequently asked questions about installation, please check the [installation guide](https://connectomics.readthedocs.io/en/latest/notes/installation.html).
+Since the codebase is under active development, the **editable** installation will allow any changes to the original package to reflect directly in the environment. For more information and frequently asked questions about installation, please check the [installation guide](https://connectomics.readthedocs.io/en/latest/notes/installation.html).
+
+### Docker
+
+Besides the installation guidance above, we also push a PyTC Docker image to the public docker 
+registry (03/12/2022) to improve usability.
+Additionally, we provide the corresponding Dockerfile to enable individual modifications.
+Pleas refer to our [PyTC Docker Guidance](docker/README.md) for more information.
 
 ## Notes
 

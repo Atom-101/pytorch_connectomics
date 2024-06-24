@@ -9,6 +9,7 @@ from scipy.signal import convolve2d
 
 from .data_affinity import *
 from .data_transform import *
+from .data_diffusion import seg2diffgrads
 
 RATES_TYPE = Optional[Union[List[int], int]]
 
@@ -25,7 +26,11 @@ def getSegType(mid):
     return m_type
 
 
-def relabel(seg, do_type=False):
+def reduce_label(seg, do_type=False):
+    """Reduce the mask indicies in a given segmentation volume. For example, [0,2,3,4] will
+    become [0,1,2,3] (background-only volumes will be ignored in the processing). This
+    function is not expected for semantic segmentation, which may result in class shift.
+    """
     # get the unique labels
     uid = np.unique(seg)
     # ignore all-background samples
@@ -319,6 +324,15 @@ def seg_to_targets(label_orig: np.ndarray,
             _, mode, a, b = topt.split('-')
             distance = edt_semantic(label.copy(), mode, float(a), float(b))
             out[tid] = distance[np.newaxis, :].astype(np.float32)
+        elif topt[0] == '7':  # 2d diffusion gradients (cellpose targets)
+            diffgrads = seg2diffgrads(label)
+            if '0' in (topt.split('-')):
+                bin_mask = seg2binary(label, ['0'])
+                if bin_mask.ndim<diffgrads.ndim:
+                    bin_mask = np.expand_dims(bin_mask,0)
+                out[tid] = np.concatenate((diffgrads,bin_mask), axis=0)
+            else:
+                out[tid] = seg2diffgrads(label)
         elif topt[0] == '9':  # generic semantic segmentation
             out[tid] = label.astype(np.int64)
         else:

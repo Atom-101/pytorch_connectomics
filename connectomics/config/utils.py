@@ -66,6 +66,8 @@ def update_inference_cfg(cfg: CfgNode):
         cfg.MODEL.INPUT_SIZE = cfg.INFERENCE.INPUT_SIZE
     if cfg.INFERENCE.OUTPUT_SIZE is not None:
         cfg.MODEL.OUTPUT_SIZE = cfg.INFERENCE.OUTPUT_SIZE
+    # specify feature maps to return as inference time
+    cfg.MODEL.RETURN_FEATS = cfg.INFERENCE.MODEL_RETURN_FEATS
 
     # output file name(s)
     out_name = cfg.INFERENCE.OUTPUT_NAME
@@ -134,6 +136,12 @@ def overwrite_cfg(cfg: CfgNode, args: argparse.Namespace):
         cfg.DATASET.LABEL_SCALE = cfg.DATASET.DATA_SCALE
     if cfg.DATASET.VALID_MASK_SCALE is None:
         cfg.DATASET.VALID_MASK_SCALE = cfg.DATASET.DATA_SCALE
+
+    # Disable label reducing for semantic segmentation to avoid class shift
+    for topt in cfg.MODEL.TARGET_OPT:
+        if topt[0] == '9': # semantic segmentation mode
+            cfg.DATASET.REDUCE_LABEL = False
+            break
 
 
 def validate_cfg(cfg: CfgNode):

@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+import math
 from typing import Optional, Union, List
 
 import torch
@@ -192,6 +193,8 @@ class InvertedResidual(nn.Module):
         # assert stride in [1, 2, (1, 2, 2)]
         assert kernel_size in [3, 5]
         mid_ch = in_ch * expansion_factor
+        if norm_mode == 'gn':
+            mid_ch = math.ceil(mid_ch/8) * 8
         # self.apply_residual = (in_ch == out_ch and stride == 1)
 
         conv_layer = dwconvkxkxk if isotropic else dwconv1xkxk

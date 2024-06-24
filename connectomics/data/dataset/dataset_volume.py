@@ -32,6 +32,8 @@ class VolumeDataset(torch.utils.data.Dataset):
         mode (str): ``'train'``, ``'val'`` or ``'test'``. Default: ``'train'``
         do_2d (bool): load 2d samples from 3d volumes. Default: False
         iter_num (int): total number of training iterations (-1 for inference). Default: -1
+        do_relabel (bool): reduce the the mask indicies in a sampled label volume. This option be set to
+            False for semantic segmentation, otherwise the classes can shift. Default: True
         reject_size_thres (int, optional): threshold to decide if a sampled volumes contains foreground objects. Default: 0
         reject_diversity (int, optional): threshold to decide if a sampled volumes contains multiple objects. Default: 0
         reject_p (float, optional): probability of rejecting non-foreground volumes. Default: 0.95
@@ -63,6 +65,7 @@ class VolumeDataset(torch.utils.data.Dataset):
                  mode: str = 'train',
                  do_2d: bool = False,
                  iter_num: int = -1,
+                 do_relabel: bool = True,
                  # rejection sampling
                  reject_size_thres: int = 0,
                  reject_diversity: int = 0,
@@ -75,8 +78,7 @@ class VolumeDataset(torch.utils.data.Dataset):
         assert mode in ['train', 'val', 'test']
         self.mode = mode
         self.do_2d = do_2d
-        # if self.do_2d:
-        #     assert (sample_volume_size[0] == 1) * (sample_label_size[0] == 1)
+        self.do_relabel = do_relabel
 
         # data format
         self.volume = volume
@@ -164,11 +166,10 @@ class VolumeDataset(torch.utils.data.Dataset):
             pos = self._get_pos_test(index)
             out_volume = (crop_volume(
                 self.volume[pos[0]], vol_size, pos[1:])/255.0).astype(np.float32)
-            out_volume = normalize_image(out_volume, self.data_mean, self.data_std,
-                                         match_act=self.data_match_act)
             if self.do_2d:
                 out_volume = np.squeeze(out_volume)
-            return pos, np.expand_dims(out_volume, 0)
+
+            return pos, self._process_image(out_volume)
 
     def _process_targets(self, sample):
         pos, out_volume, out_label, out_valid = sample
@@ -178,9 +179,8 @@ class VolumeDataset(torch.utils.data.Dataset):
                 out_volume, out_label, out_valid)
 
         out_volume = self._process_image(out_volume)
-
-        if out_label is None: # unlabeled data
-            return pos, out_volume, None, None
+        if out_label is None: # unlabeled data, compatible with collate_fn_test
+            return pos, out_volume
 
         # convert masks to different learning targets
         out_target = seg_to_targets(
@@ -283,7 +283,8 @@ class VolumeDataset(torch.utils.data.Dataset):
             # For warping: cv2.remap requires input to be float32.
             # Make labels index smaller. Otherwise uint32 and float32 are not
             # the same for some values.
-            out_label = relabel(out_label.copy()).astype(np.float32)
+            out_label = reduce_label(out_label.copy()) if self.do_relabel else out_label.copy()
+            out_label = out_label.astype(np.float32)
 
         if self.valid_mask is not None:
             out_valid = crop_volume(self.label[pos[0]],
@@ -396,3 +397,77 @@ class VolumeDatasetRecon(VolumeDataset):
         out_weight = seg_to_weights(
             out_target, self.weight_opt, out_valid, out_label)
         return pos, out_volume, out_target, out_weight, out_recon
+
+
+class VolumeDatasetMultiSeg(VolumeDataset):
+    def __init__(self, multiseg_split: list = [1,2], **kwargs):
+        self.multiseg_split = multiseg_split
+        super().__init__(**kwargs)
+
+        if self.mode == 'test': 
+            return # no need for target_opt and multiseg_split in inference
+
+        assert len(self.target_opt) == sum(multiseg_split)
+        self.multiseg_cumsum = [0] + list(np.cumsum(multiseg_split))
+        self.target_opt_multiseg = []
+        for i in range(len(multiseg_split)):
+            self.target_opt_multiseg.append(
+                self.target_opt[self.multiseg_cumsum[i]:self.multiseg_cumsum[i+1]])
+        print("Multiseg target options: ", self.target_opt_multiseg)
+
+    def _rejection_sampling(self, vol_size):
+        while True:
+            sample = self._random_sampling(vol_size)
+            pos, out_volume, out_label, out_valid = sample
+            n_seg_maps =  out_label.shape[0]
+
+            if self.augmentor is not None:
+                if out_valid is not None:
+                    assert 'valid_mask' in target_dict.keys(), \
+                        "Need to specify the 'valid_mask' option in additional_targets " \
+                        "of the data augmentor when training with partial annotation."
+
+                data = {'image': out_volume}
+                target_dict = self.augmentor.additional_targets
+                for i in range(n_seg_maps):
+                    assert 'label%d' % i in target_dict.keys() # each channel is augmented
+                    data['label%d' % i] = out_label[i,:,:,:]
+
+                augmented = self.augmentor(data)
+                out_volume = augmented['image']
+                out_label = [augmented['label%d' % i] for i in range(n_seg_maps)]
+
+            else: # no augmentation, out_recon is out_volume
+                out_label = [out_label[i,:,:,:] for i in range(n_seg_maps)]
+
+            # the first segmentation map is used for rejection sampling
+            if self._is_valid(out_valid) and self._is_fg(out_label[0]):
+                return pos, out_volume, out_label, out_valid
+
+    def _process_targets(self, sample):
+        pos, out_volume, out_label, out_valid = sample
+
+        if self.do_2d:
+            out_volume, out_valid = numpy_squeeze(out_volume, out_valid)
+            out_label = numpy_squeeze(*out_label)
+
+        out_volume = self._process_image(out_volume)
+
+        if out_label is None: # unlabeled data
+            return pos, out_volume, None, None
+
+        # convert masks to different learning targets
+        out_target = self.multiseg_to_targets(out_label)
+        out_weight = seg_to_weights(
+            out_target, self.weight_opt, out_valid, out_label)
+        return pos, out_volume, out_target, out_weight
+
+    def multiseg_to_targets(self, out_label):
+        assert len(out_label) == len(self.target_opt_multiseg)
+        out_target = []
+        for i in range(len(out_label)):
+            out_target.extend(seg_to_targets(
+                out_label[i], self.target_opt_multiseg[i], 
+                self.erosion_rates, self.dilation_rates))
+        
+        return out_target

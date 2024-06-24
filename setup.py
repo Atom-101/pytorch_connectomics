@@ -19,6 +19,7 @@ requirements = [
     'tensorflow>=2.2.0',
     'tensorboard>=2.2.2',
     'einops>=0.3.0',
+    'tqdm>=4.58.0',
 ]
 
 
@@ -36,7 +37,7 @@ def setup_package():
           version=__version__,
           url=url,
           license='MIT',
-          author='Zudi Lin and Donglai Wei',
+          author='PyTorch Connectomics Contributors',
           install_requires=requirements,
           include_dirs=getInclude(),
           packages=find_packages(),

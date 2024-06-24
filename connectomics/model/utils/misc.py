@@ -2,8 +2,9 @@ from __future__ import print_function, division
 from collections import OrderedDict
 from typing import Optional, List
 
+import random
 import torch
-from torch import nn
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.jit.annotations import Dict
 
@@ -83,6 +84,7 @@ class SplitActivation(object):
         '4': 1, # instance boundary
         '5': 1, # instance edt (11 channels for quantized)
         '6': 1, # semantic edt
+        '7': 2, # diffusion gradients (2d)
         'all': -1 # all remaining channels
     }
 
@@ -133,6 +135,7 @@ class SplitActivation(object):
                 self.split_channels.append(channels)
                 continue
 
+
             # use the default channel number for other cases
             self.split_channels.append(self.num_channels_dict[topt[0]])
         print("Channel split rule for prediction: ", self.split_channels)
@@ -181,6 +184,70 @@ class SplitActivation(object):
                    do_2d=cfg.DATASET.DO_2D,
                    normalize=normalize)
 
+
+class ImagePool(object):
+    """This class implements an image buffer that stores previously generated images. Adapted from
+    https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/util/image_pool.py
+
+    This buffer enables us to update discriminators using a history of generated images
+    rather than the ones produced by the latest generators.
+    """
+    def __init__(self, pool_size: int, device: torch.device, on_cpu: bool=False):
+        """Initialize the ImagePool class
+
+        Args:
+            pool_size (int): the size of image buffer, if pool_size=0, no buffer will be created
+            device (torch.device): model running device. GPUs are recommended for model training and inference.
+            on_cpu (bool): whether to save image buffer on cpu to reduce GPU memory usage. Defalt: False
+        """
+        self.pool_size = pool_size
+        if self.pool_size > 0:  # create an empty pool
+            self.num_imgs = 0
+            self.images = []
+
+        self.device, self.on_cpu = device, on_cpu
+
+    def query(self, images):
+        """Return an image from the pool.
+
+        Args:
+            images: the latest generated images from the generator
+
+        Returns images from the buffer.
+
+        By 50/100, the buffer will return input images.
+        By 50/100, the buffer will return images previously stored in the buffer,
+        and insert the current images to the buffer.
+        """
+        if self.pool_size == 0:  # if the buffer size is 0, do nothing
+            return images
+
+        return_images = []
+        for image in images:
+            image = torch.unsqueeze(image.data, 0)
+            if self.num_imgs < self.pool_size:   # if the buffer is not full; keep inserting current images to the buffer
+                self.num_imgs = self.num_imgs + 1
+                if self.on_cpu: # save buffer images on cpu
+                    self.images.append(image.clone().detach().cpu())
+                else:
+                    self.images.append(image.clone())
+                return_images.append(image)
+            else:
+                p = random.uniform(0, 1)
+                if p > 0.5:  # by 50% chance, the buffer will return a previously stored image, and insert the current image into the buffer
+                    random_id = random.randint(0, self.pool_size - 1)  # randint is inclusive
+                    tmp = self.images[random_id].clone()
+                    if self.on_cpu: # save buffer images on cpu
+                        self.images[random_id] = image.clone().detach().cpu()
+                    else:
+                        self.images.append(image.clone())
+                    return_images.append(tmp.to(self.device))
+                else:       # by another 50% chance, the buffer will return the current image
+                    return_images.append(image)
+        return_images = torch.cat(return_images, 0)   # collect all the images and return
+        return return_images
+
+
 # ------------------
 # Swish Activation
 # ------------------
@@ -222,9 +289,9 @@ def get_activation(activation: str = 'relu') -> nn.Module:
 
     Args:
         activation (str): one of ``'relu'``, ``'leaky_relu'``, ``'elu'``, ``'gelu'``,
-            ``'swish'``, 'efficient_swish'`` and ``'none'``. Default: ``'relu'``
+            ``'silu'``, ``'swish'``, 'efficient_swish'`` and ``'none'``. Default: ``'relu'``
     """
-    assert activation in ["relu", "leaky_relu", "elu", "gelu",
+    assert activation in ["relu", "leaky_relu", "elu", "gelu", "silu",
                           "swish", "efficient_swish", "none"], \
         "Get unknown activation key {}".format(activation)
     activation_dict = {
@@ -232,6 +299,7 @@ def get_activation(activation: str = 'relu') -> nn.Module:
         "leaky_relu": nn.LeakyReLU(negative_slope=0.2, inplace=True),
         "elu": nn.ELU(alpha=1.0, inplace=True),
         "gelu": nn.GELU(),
+        "silu": nn.SiLU(inplace=True),
         "swish": Swish(),
         "efficient_swish": MemoryEfficientSwish(),
         "none": nn.Identity(),
@@ -257,6 +325,7 @@ def get_functional_act(activation: str = 'relu'):
         'none': lambda x: x,
     }
     return activation_dict[activation]
+
 
 # ----------------------
 # Normalization Layers

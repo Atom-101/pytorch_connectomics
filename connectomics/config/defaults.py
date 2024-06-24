@@ -33,7 +33,7 @@ _C.MODEL.DEPLOY_MODE = False
 
 # Number of filters per unet block
 _C.MODEL.FILTERS = [28, 36, 48, 64, 80]
-_C.MODEL.BLOCKS = [2, 2, 2, 2]
+_C.MODEL.BLOCKS = [2, 2, 2, 2, 2]
 _C.MODEL.KERNEL_SIZES = [3, 3, 5, 3, 3] #used only in effnet for now
 
 _C.MODEL.ATTENTION = 'squeeze_excitation'
@@ -41,8 +41,10 @@ _C.MODEL.ATTENTION = 'squeeze_excitation'
 _C.MODEL.ISOTROPY = [False, False, False, True, True]
 
 _C.MODEL.TARGET_OPT = ['0']
-_C.MODEL.LABEL_EROSION = None
-_C.MODEL.LABEL_DILATION = None
+_C.MODEL.TARGET_OPT_MULTISEG_SPLIT = None
+
+_C.MODEL.LABEL_EROSION = None # erode masks
+_C.MODEL.LABEL_DILATION = None # dilate masks
 
 _C.MODEL.WEIGHT_OPT = [['1']]
 
@@ -107,6 +109,8 @@ _C.MODEL.PRE_MODEL_LAYER = ''
 
 _C.MODEL.PRE_MODEL_ITER = 0
 
+# Return specified feature maps (only works with 3D U-Net and child classes)
+_C.MODEL.RETURN_FEATS = None
 # Predict an auxiliary output (only works with 2D DeeplabV3)
 _C.MODEL.AUX_OUT = False
 
@@ -149,11 +153,19 @@ _C.DATASET.DO_2D = False
 _C.DATASET.LOAD_2D = False
 
 # Specify whether to drop channels in multi-channel images/volumes
-_C.DATASET.DROP_CHANNEL = True
+_C.DATASET.DROP_CHANNEL = False
+
+# Reduce the the mask indicies in a sampled label volume
+_C.DATASET.REDUCE_LABEL = True
 
 # Padding size for the input volumes
 _C.DATASET.PAD_SIZE = [2, 64, 64]
 _C.DATASET.PAD_MODE = 'reflect'  # reflect, constant, symmetric
+
+# Upsample the input to at least the required sample size. If data 
+# augmentor is used, the min_size is augmentor.sample_size, else is
+# MODEL.INPUT_SIZE.
+_C.DATASET.ENSURE_MIN_SIZE = False
 
 # Normalize the image and cast to uint8 format
 _C.DATASET.NORMALIZE_RANGE = True
@@ -172,6 +184,11 @@ _C.DATASET.DATA_CHUNK_NUM = [1, 1, 1]
 # Predefined data chunk to iterate through
 _C.DATASET.DATA_CHUNK_IND = None
 _C.DATASET.CHUNK_IND_SPLIT = None
+
+# For TileDataset, specify the coordintate range of data to use.
+# If not None, should be a list of format [z0, z1, y0, y1, x0, x1] applied to all volumes,
+# or List[List[int]] with a range for each input TileDataset volume.
+_C.DATASET.DATA_COORD_RANGE = None
 
 # Boolean variable, euqal to 'int(args.data_chunk_num[-1:])==1'
 _C.DATASET.DATA_CHUNK_STRIDE = True
@@ -205,8 +222,10 @@ _C.AUGMENTOR = CN({"ENABLED": True})
 
 # The nearest interpolation for the label mask during data augmentation
 # can result in masks with coarse boundaries. Thus we apply Gaussian filtering
-# to smooth the object boundary (default: True).
-_C.AUGMENTOR.SMOOTH = True
+# to smooth the object boundary (default: False).
+# WARNING: applying label smoothing can erase the segmentation masks of thin 
+# structures like spine necks and wrinkle artifacts.
+_C.AUGMENTOR.SMOOTH = False
 
 # CfgNodes can only contain a limited set of valid types:
 # _VALID_TYPES = {tuple, list, str, int, float, bool, type(None)}
@@ -424,6 +443,9 @@ _C.INFERENCE.TEST_ID = 0
 # SAMPLES_PER_BATCH = 4, then each GPU will see 2 samples and the
 # effective batch size is 32.
 _C.INFERENCE.SAMPLES_PER_BATCH = 4
+
+# Change MODEL.RETURN_FEATS at inference time.
+_C.INFERENCE.MODEL_RETURN_FEATS = None
 
 
 def get_cfg_defaults():

@@ -25,15 +25,15 @@ Please follow the steps below for a successful installation:
 
     conda create -n py3_torch python=3.8
     source activate py3_torch
-    conda install pytorch torchvision cudatoolkit=11.0 -c pytorch
+    conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
 More options to install PyTorch can be found `here <https://pytorch.org/get-started/locally/>`_. Our package has been tested with 
-CUDA 10.2 and 11.0. Then please ensure that at least PyTorch **1.8.0** is installed:
+CUDA 10.2 and 11.4. Then please ensure that at least PyTorch **1.10.0** is installed:
 
 .. code-block:: none
 
     python -c 'import torch; print(torch.__version__)'
-    >>> 1.8.0
+    >>> 1.10.0
 
 2 - Install PyTorch Connectomics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -82,7 +82,7 @@ Verify that ``nvcc`` is accessible from terminal:
 
 Ensure that PyTorch and system CUDA versions match:
 
-.. code-block:: none
+.. code-block:: console
 
     python -c 'import torch; print(torch.version.cuda)'
     >>> 11.0
@@ -91,9 +91,16 @@ The codebase is mainly developed and tested on the Harvard `FASRC <https://www.r
 For FASRC users, please load required CUDA modules from the `RC server module list <https://portal.rc.fas.harvard.edu/p3/build-reports/>`_ during 
 running and development on the cluster. For example:
 
-.. code-block:: none
+.. code-block:: console
 
     module load cuda cudnn
+
+If you only want to install pytorch_connectomics as a Python library without clone the repository with all the pre-defined configuration files, please
+use ``pip`` to directly install it from GitHub:
+
+.. code-block:: console
+
+    pip install git+https://github.com/zudi-lin/pytorch_connectomics.git    
 
 .. note::
 

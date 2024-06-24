@@ -4,7 +4,7 @@ from typing import Optional, List, Union, Tuple
 import torch
 import torchvision.utils as vutils
 import numpy as np
-from ..data.utils import decode_quantize
+from ..data.utils import decode_quantize, dx_to_circ
 from connectomics.model.utils import SplitActivation
 
 __all__ = [
@@ -43,11 +43,11 @@ class Visualizer(object):
 
         for idx in range(len(self.cfg.MODEL.TARGET_OPT)):
             topt = self.cfg.MODEL.TARGET_OPT[idx]
-            if topt[0] == '9':
+            if topt[0] == '9': # semantic segmentation
                 output[idx] = self.get_semantic_map(output[idx], topt)
                 label[idx] = self.get_semantic_map(
                     label[idx], topt, argmax=False)
-            if topt[0] == '5':
+            if topt[0] == '5': # distance transform
                 if len(topt) == 1:
                     topt = topt + '-2d-0-0-5.0' # default
                 _, mode, padding, quant, z_res = topt.split('-')
@@ -57,8 +57,11 @@ class Visualizer(object):
                     temp_label = label[idx].clone().float()[
                         :, np.newaxis]
                     label[idx] = temp_label / temp_label.max() + 1e-6
+            if topt[0]=='7': # diffusion gradient
+                output[idx] = dx_to_circ(output[idx])
+                label[idx] = dx_to_circ(label[idx])
 
-            RGB = (topt[0] in ['1', '2', '9'])
+            RGB = (topt[0] in ['1', '2', '7', '9'])
             vis_name = self.cfg.MODEL.TARGET_OPT[idx] + '_' + str(idx)
             if suffix is not None:
                 vis_name = vis_name + '_' + suffix
@@ -74,14 +77,15 @@ class Visualizer(object):
             self.visualize_consecutive(volume, label[idx], output[idx], weight_maps,
                                        iter_total, writer, RGB=RGB, vis_name=vis_name)
 
-    def visualize_image_groups(self, writer, iteration, image_groups: Optional[dict] = None):
+    def visualize_image_groups(self, writer, iteration, image_groups: Optional[dict] = None,
+                               is_3d: bool = True) -> None:
         if image_groups is None:
             return
 
         for name in image_groups.keys():
             image_list = image_groups[name]
             image_list = [self._denormalize(x) for x in image_list]
-            image_list = [self.permute_truncate(x, is_3d=True) for x in image_list]
+            image_list = [self.permute_truncate(x, is_3d=is_3d) for x in image_list]
             sz = image_list[0].size()
             canvas = [x.detach().cpu().expand(sz[0], 3, sz[2], sz[3]) for x in image_list]
             canvas_merge = torch.cat(canvas, 0)
@@ -140,7 +144,7 @@ class Visualizer(object):
         return volume, label, output, weight_maps
 
     def permute_truncate(self, data, is_3d=False):
-        if is_3d:
+        if is_3d: # show consecutive slices of a 3d volume
             data = data[0].permute(1, 0, 2, 3)
         high = min(data.size()[0], self.N)
         return data[:high]

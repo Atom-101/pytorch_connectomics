@@ -10,8 +10,6 @@ import numpy as np
 from yacs.config import CfgNode
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.cuda.amp import autocast, GradScaler
 
 from .base import TrainerBase
@@ -83,6 +81,8 @@ class Trainer(TrainerBase):
                     self.cfg, None, mode='val', rank=rank)
 
     def init_basics(self, *args):
+        # This function is used for classes that inherit Trainer but only 
+        # need to initialize basic attributes in TrainerBase.
         super().__init__(*args)
 
     def train(self):
@@ -137,17 +137,17 @@ class Trainer(TrainerBase):
         self.maybe_update_swa_model(iter_total)
         self.scheduler_step(iter_total, loss)
 
-        if self.is_main_process:
-            self.iter_time = time.perf_counter() - self.start_time
-            self.total_time += self.iter_time
-            avg_iter_time = self.total_time / (iter_total+1-self.start_iter)
-            est_time_left = avg_iter_time * \
-                (self.total_iter_nums+self.start_iter-iter_total-1) / 3600.0
-            info = [
-                '[Iteration %05d]' % iter_total, 'Data time: %.4fs,' % self.data_time,
-                'Iter time: %.4fs,' % self.iter_time, 'Avg iter time: %.4fs,' % avg_iter_time,
-                'Time Left %.2fh.' % est_time_left]
-            print(' '.join(info))
+        # if self.is_main_process:
+        #     self.iter_time = time.perf_counter() - self.start_time
+        #     self.total_time += self.iter_time
+        #     avg_iter_time = self.total_time / (iter_total+1-self.start_iter)
+        #     est_time_left = avg_iter_time * \
+        #         (self.total_iter_nums+self.start_iter-iter_total-1) / 3600.0
+        #     info = [
+        #         '[Iteration %05d]' % iter_total, 'Data time: %.4fs,' % self.data_time,
+        #         'Iter time: %.4fs,' % self.iter_time, 'Avg iter time: %.4fs,' % avg_iter_time,
+        #         'Time Left %.2fh.' % est_time_left]
+        #     print(' '.join(info))
 
         # Release some GPU memory and ensure same GPU usage in the consecutive iterations according to
         # https://discuss.pytorch.org/t/gpu-memory-consumption-increases-while-training/2770
@@ -176,8 +176,11 @@ class Trainer(TrainerBase):
         if hasattr(self, 'monitor'):
             self.monitor.logger.log_tb.add_scalar(
                 'Validation_Loss', val_loss, iter_total)
-            self.monitor.visualize(volume, target, pred,
+            for key in weight.keys():
+                weight[key] = weight[key][:, :, 44:, :, :]
+            self.monitor.visualize(volume[:,:,44:, : ,:], target[:,:,44:, : ,:], pred[:,:,44:, : ,:],
                                    weight, iter_total, suffix='Val')
+            print('logged images')
 
         if not hasattr(self, 'best_val_loss'):
             self.best_val_loss = val_loss
@@ -196,6 +199,7 @@ class Trainer(TrainerBase):
     def test(self):
         r"""Inference function of the trainer class.
         """
+        # with batchnorm, train mode use the current batch statistics
         self.model.eval() if self.cfg.INFERENCE.DO_EVAL else self.model.train()
         output_scale = self.cfg.INFERENCE.OUTPUT_SCALE
         spatial_size = list(np.ceil(
@@ -329,7 +333,7 @@ class Trainer(TrainerBase):
             print("Save model checkpoint at iteration ", iteration)
             state = {'iteration': iteration + 1,
                      # Saving DataParallel or DistributedDataParallel models
-                     'state_dict': self.model.module.state_dict(),
+                     'state_dict': self.model.state_dict(),
                      'optimizer': self.optimizer.state_dict(),
                      'lr_scheduler': self.lr_scheduler.state_dict()}
 
@@ -344,7 +348,9 @@ class Trainer(TrainerBase):
         r"""Update the model with the specified checkpoint file path.
         """
         if checkpoint is None:
-            return
+            if self.mode == 'test':
+                warnings.warn("Test mode without specified checkpoint!")
+            return # nothing to load
 
         # load pre-trained model
         print('Load pretrained checkpoint: ', checkpoint)

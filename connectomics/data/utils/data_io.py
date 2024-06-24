@@ -1,6 +1,10 @@
 from __future__ import print_function, division
 from typing import Optional, List
 
+# Avoid PIL "IOError: image file truncated"
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 import os
 import h5py
 import math
@@ -10,7 +14,7 @@ import imageio
 from scipy.ndimage import zoom
 
 
-def readimg_as_vol(filename, drop_channel=True):
+def readimg_as_vol(filename, drop_channel=False):
     img_suf = filename[filename.rfind('.')+1:]
     assert img_suf in ['png', 'tif']
     data = imageio.imread(filename)

@@ -24,7 +24,7 @@ class FPN3D(nn.Module):
         isotropy (List[bool]): specify each U-Net stage is isotropic or anisotropic. All elements will
             be `True` if :attr:`is_isotropic` is `True`. Default: [False, False, False, True, True]
         pad_mode (str): one of ``'zeros'``, ``'reflect'``, ``'replicate'`` or ``'circular'``. Default: ``'replicate'``
-        act_mode (str): one of ``'relu'``, ``'leaky_relu'``, ``'elu'``, ``'gelu'``, 
+        act_mode (str): one of ``'relu'``, ``'leaky_relu'``, ``'elu'``, ``'gelu'``,
             ``'swish'``, ``'efficient_swish'`` or ``'none'``. Default: ``'relu'``
         norm_mode (str): one of ``'bn'``, ``'sync_bn'`` ``'in'`` or ``'gn'``. Default: ``'bn'``
         init_mode (str): one of ``'xavier'``, ``'kaiming'``, ``'selu'`` or ``'orthogonal'``. Default: ``'orthogonal'``
